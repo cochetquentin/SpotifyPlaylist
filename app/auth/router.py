@@ -54,11 +54,16 @@ def login() -> RedirectResponse:
 
 
 @router.get("/callback", summary="Callback OAuth — échange le code contre des tokens")
-async def callback(code: str, state: str) -> HTMLResponse:
+async def callback(state: str, code: str | None = None, error: str | None = None) -> HTMLResponse:
+    if error:
+        raise HTTPException(status_code=400, detail=f"Spotify a refusé l'autorisation : {error}")
     _prune_states()
     if state not in _pending_states:
         raise HTTPException(status_code=400, detail="State OAuth invalide ou expiré.")
     _pending_states.pop(state, None)
+
+    if not code:
+        raise HTTPException(status_code=400, detail="Paramètre 'code' manquant dans le callback.")
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
