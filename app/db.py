@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS playlist_tracks (
     playlist_id TEXT,
     track_id TEXT,
     position INTEGER,
-    PRIMARY KEY (playlist_id, track_id, position),
+    PRIMARY KEY (playlist_id, track_id),
     FOREIGN KEY (track_id) REFERENCES tracks(id)
 );
 """
@@ -129,16 +129,24 @@ def upsert_playlist(db_path: Path, playlist: dict) -> bool:
 
 
 def upsert_playlist_track(db_path: Path, playlist_id: str, track_id: str, position: int) -> bool:
-    """Associe un track à une playlist. Retourne True si nouvelle association."""
+    """Associe un track à une playlist. Retourne True si nouvelle association.
+
+    Met à jour la position si le track est déjà présent (réordonnancement de playlist).
+    """
     with get_connection(db_path) as conn:
-        cursor = conn.execute(
+        existing = conn.execute(
+            "SELECT playlist_id FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?",
+            (playlist_id, track_id),
+        ).fetchone()
+        conn.execute(
             """
-            INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position)
+            INSERT INTO playlist_tracks (playlist_id, track_id, position)
             VALUES (?, ?, ?)
+            ON CONFLICT(playlist_id, track_id) DO UPDATE SET position = excluded.position
             """,
             (playlist_id, track_id, position),
         )
-    return cursor.rowcount > 0
+    return existing is None
 
 
 def record_sync(db_path: Path | None = None) -> None:
