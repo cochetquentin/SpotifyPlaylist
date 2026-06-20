@@ -20,11 +20,14 @@ def _get_fernet() -> Fernet:
     if not kp.exists():
         key = Fernet.generate_key()
         # Créer avec mode 0600 dès l'ouverture — pas de fenêtre avec umask par défaut
-        fd = os.open(str(kp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
-            os.write(fd, key)
-        finally:
-            os.close(fd)
+            fd = os.open(str(kp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            try:
+                os.write(fd, key)
+            finally:
+                os.close(fd)
+        except FileExistsError:
+            pass  # Autre processus a créé la clé simultanément — réutiliser la sienne
     return Fernet(kp.read_bytes())
 
 

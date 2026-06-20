@@ -66,9 +66,13 @@ async def _refresh_tokens(tokens: dict) -> dict:
                 error_code = ""
             if error_code == "invalid_grant":
                 clear_tokens()
+                raise HTTPException(
+                    status_code=401,
+                    detail="Session expirée. Visitez /auth/login pour vous reconnecter.",
+                ) from exc
             raise HTTPException(
-                status_code=401,
-                detail="Session expirée. Visitez /auth/login pour vous reconnecter.",
+                status_code=502,
+                detail=f"Erreur Spotify lors du renouvellement du token : {error_code or exc.response.status_code}",
             ) from exc
         raise
     new_tokens = resp.json()

@@ -93,8 +93,8 @@ def test_me_triggers_refresh_when_token_expired():
     assert resp.status_code == 200
 
 
-def test_me_returns_401_when_refresh_fails():
-    """Un 401 générique n'efface pas les tokens (pas d'invalid_grant)."""
+def test_me_returns_502_when_refresh_fails_non_invalid_grant():
+    """Un 400/401 sans invalid_grant → 502 (erreur serveur/config, pas session expirée)."""
     expired_tokens = {
         "access_token": "old_token",
         "refresh_token": "revoked_refresh",
@@ -102,7 +102,7 @@ def test_me_returns_401_when_refresh_fails():
     }
     refresh_response = MagicMock()
     refresh_response.status_code = 401
-    refresh_response.json.return_value = {"error": "some_other_error"}
+    refresh_response.json.return_value = {"error": "invalid_client"}
     refresh_response.raise_for_status.side_effect = httpx.HTTPStatusError(
         "401 Unauthorized", request=MagicMock(), response=refresh_response
     )
@@ -114,8 +114,8 @@ def test_me_returns_401_when_refresh_fails():
             with patch("app.main.httpx.AsyncClient", return_value=mock_refresh):
                 resp = client.get("/me")
 
-    assert resp.status_code == 401
-    assert "Session expirée" in resp.json()["detail"]
+    assert resp.status_code == 502
+    assert "Erreur Spotify" in resp.json()["detail"]
     mock_clear.assert_not_called()
 
 

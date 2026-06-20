@@ -15,6 +15,11 @@ while IFS= read -r -d $'\0' entry; do
 
   if $SKIP_NEXT; then
     SKIP_NEXT=false
+    # Ancien chemin d'un rename — le tracker aussi dans dirty[]
+    escaped=$(printf '%s' "$entry" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    $DIRTY_FIRST || DIRTY_JSON+=","
+    DIRTY_JSON+="\"$escaped\""
+    DIRTY_FIRST=false
     continue
   fi
 
