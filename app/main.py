@@ -70,9 +70,10 @@ async def _refresh_tokens(tokens: dict) -> dict:
                     status_code=401,
                     detail="Session expirée. Visitez /auth/login pour vous reconnecter.",
                 ) from exc
+            hint = error_code or str(exc.response.status_code)
             raise HTTPException(
                 status_code=502,
-                detail=f"Erreur Spotify lors du renouvellement du token : {error_code or exc.response.status_code}",
+                detail=f"Erreur Spotify lors du renouvellement du token : {hint}",
             ) from exc
         raise
     new_tokens = resp.json()
