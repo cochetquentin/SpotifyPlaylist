@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 
 from app.auth.router import router as auth_router
-from app.auth.tokens import load_tokens, save_tokens
+from app.auth.tokens import clear_tokens, load_tokens, save_tokens
 
 load_dotenv()
 
@@ -56,7 +56,26 @@ async def _refresh_tokens(tokens: dict) -> dict:
             data={"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"]},
             auth=(os.environ["SPOTIFY_CLIENT_ID"], os.environ["SPOTIFY_CLIENT_SECRET"]),
         )
-    resp.raise_for_status()
+    try:
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (400, 401):
+            try:
+                error_code = exc.response.json().get("error", "")
+            except Exception:
+                error_code = ""
+            if error_code == "invalid_grant":
+                clear_tokens()
+                raise HTTPException(
+                    status_code=401,
+                    detail="Session expirée. Visitez /auth/login pour vous reconnecter.",
+                ) from exc
+            hint = error_code or str(exc.response.status_code)
+            raise HTTPException(
+                status_code=502,
+                detail=f"Erreur Spotify lors du renouvellement du token : {hint}",
+            ) from exc
+        raise
     new_tokens = resp.json()
     new_tokens["expires_at"] = time.time() + new_tokens["expires_in"]
     new_tokens.setdefault("refresh_token", tokens["refresh_token"])

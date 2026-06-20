@@ -3,23 +3,61 @@ import os
 import stat
 from pathlib import Path
 
-_TOKENS_PATH = Path(os.environ.get("SPOTIFY_TOKENS_FILE", ".tokens.json"))
+from cryptography.fernet import Fernet, InvalidToken
+
+
+def _tokens_path() -> Path:
+    """Résolu à l'appel pour respecter load_dotenv() et les surcharges de tests."""
+    return Path(os.environ.get("SPOTIFY_TOKENS_FILE", ".tokens.json"))
+
+
+def _key_path() -> Path:
+    return _tokens_path().with_suffix(".key")
+
+
+def _get_fernet() -> Fernet:
+    kp = _key_path()
+    if not kp.exists():
+        key = Fernet.generate_key()
+        # Créer avec mode 0600 dès l'ouverture — pas de fenêtre avec umask par défaut
+        try:
+            fd = os.open(str(kp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            try:
+                os.write(fd, key)
+            finally:
+                os.close(fd)
+        except FileExistsError:
+            pass  # Autre processus a créé la clé simultanément — réutiliser la sienne
+    return Fernet(kp.read_bytes())
 
 
 def save_tokens(tokens: dict) -> None:
-    """Sauvegarde les tokens dans un fichier local (chmod 600)."""
-    _TOKENS_PATH.write_text(json.dumps(tokens, indent=2))
-    _TOKENS_PATH.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    """Chiffre (Fernet) et sauvegarde les tokens (chmod 600)."""
+    encrypted = _get_fernet().encrypt(json.dumps(tokens).encode())
+    tp = _tokens_path()
+    tp.write_bytes(encrypted)
+    tp.chmod(stat.S_IRUSR | stat.S_IWUSR)
 
 
 def load_tokens() -> dict | None:
-    """Charge les tokens depuis le fichier local. Retourne None si absent."""
-    if not _TOKENS_PATH.exists():
+    """Déchiffre et charge les tokens.
+
+    Retourne None si absent. Si le fichier est en clair (migration depuis
+    l'ancienne version) ou si la clé est corrompue, efface et retourne None
+    pour forcer une réauthentification propre.
+    """
+    tp = _tokens_path()
+    if not tp.exists():
         return None
-    return json.loads(_TOKENS_PATH.read_text())
+    try:
+        return json.loads(_get_fernet().decrypt(tp.read_bytes()).decode())
+    except (InvalidToken, json.JSONDecodeError, ValueError):
+        clear_tokens()
+        return None
 
 
 def clear_tokens() -> None:
-    """Supprime le fichier de tokens (déconnexion)."""
-    if _TOKENS_PATH.exists():
-        _TOKENS_PATH.unlink()
+    """Supprime tokens et clé (déconnexion complète)."""
+    for p in (_tokens_path(), _key_path()):
+        if p.exists():
+            p.unlink()
