@@ -10,12 +10,16 @@ router = APIRouter()
 @router.post("/import", tags=["library"])
 async def trigger_import() -> dict:
     """Déclenche l'import complet : liked songs + playlists. Mode incrémental automatique."""
+    print("[IMPORT] 1. get_valid_tokens...", flush=True)
     tokens = await get_valid_tokens()
+    print("[IMPORT] 2. tokens OK, init_db...", flush=True)
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}
     db_path = get_db_path()
     init_db(db_path)
+    print("[IMPORT] 3. import_liked_tracks...", flush=True)
 
     tracks_added = await import_liked_tracks(headers, db_path)
+    print(f"[IMPORT] 4. liked done ({tracks_added}), import_playlists...", flush=True)
     playlists_added, playlist_tracks_added, playlist_only_tracks = await import_playlists(
         headers, db_path
     )

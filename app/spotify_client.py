@@ -15,7 +15,7 @@ def _is_rate_limited(exc: BaseException) -> bool:
 
 
 async def _refresh_tokens(tokens: dict) -> dict:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
             _TOKEN_URL,
             data={"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"]},
@@ -78,7 +78,7 @@ def _retry_after_wait(retry_state) -> float:
 )
 async def spotify_get(url: str, headers: dict, params: dict | None = None) -> dict:
     """GET Spotify API avec retry automatique sur rate limit (429)."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.get(url, headers=headers, params=params)
     if resp.status_code == 429:
         raise httpx.HTTPStatusError("Rate limited", request=resp.request, response=resp)
