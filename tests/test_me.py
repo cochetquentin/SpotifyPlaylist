@@ -8,9 +8,11 @@ from app.main import app
 
 client = TestClient(app)
 
-_LOAD = "app.main.load_tokens"
-_SAVE = "app.main.save_tokens"
-_CLEAR = "app.main.clear_tokens"
+_SC_LOAD = "app.spotify_client.load_tokens"
+_SC_SAVE = "app.spotify_client.save_tokens"
+_SC_CLEAR = "app.spotify_client.clear_tokens"
+_SC_HTTP = "app.spotify_client.httpx.AsyncClient"
+_MAIN_HTTP = "app.main.httpx.AsyncClient"
 
 
 def _async_client_mock(method: str, response: MagicMock) -> MagicMock:
@@ -22,7 +24,7 @@ def _async_client_mock(method: str, response: MagicMock) -> MagicMock:
 
 
 def test_me_unauthenticated():
-    with patch(_LOAD, return_value=None):
+    with patch(_SC_LOAD, return_value=None):
         resp = client.get("/me")
     assert resp.status_code == 401
     assert "Non authentifié" in resp.json()["detail"]
@@ -40,8 +42,8 @@ def test_me_returns_spotify_profile():
     me_response.raise_for_status.return_value = None
 
     mock_client = _async_client_mock("get", me_response)
-    with patch(_LOAD, return_value=fake_tokens):
-        with patch("app.main.httpx.AsyncClient", return_value=mock_client):
+    with patch(_SC_LOAD, return_value=fake_tokens):
+        with patch(_MAIN_HTTP, return_value=mock_client):
             resp = client.get("/me")
 
     assert resp.status_code == 200
@@ -58,8 +60,8 @@ def test_me_returns_401_when_spotify_rejects_token():
     me_response.status_code = 401
 
     mock_client = _async_client_mock("get", me_response)
-    with patch(_LOAD, return_value=fake_tokens):
-        with patch("app.main.httpx.AsyncClient", return_value=mock_client):
+    with patch(_SC_LOAD, return_value=fake_tokens):
+        with patch(_MAIN_HTTP, return_value=mock_client):
             resp = client.get("/me")
 
     assert resp.status_code == 401
@@ -85,9 +87,11 @@ def test_me_triggers_refresh_when_token_expired():
     mock_refresh = _async_client_mock("post", refresh_response)
     mock_me = _async_client_mock("get", me_response)
 
-    with patch(_LOAD, return_value=expired_tokens):
-        with patch(_SAVE):
-            with patch("app.main.httpx.AsyncClient", side_effect=[mock_refresh, mock_me]):
+    with patch(_SC_LOAD, return_value=expired_tokens):
+        with patch(_SC_SAVE):
+            # httpx est un singleton : les deux modules partagent le même httpx.AsyncClient.
+            # side_effect permet de router le premier appel (refresh) et le second (/me).
+            with patch(_SC_HTTP, side_effect=[mock_refresh, mock_me]):
                 resp = client.get("/me")
 
     assert resp.status_code == 200
@@ -109,9 +113,9 @@ def test_me_returns_502_when_refresh_fails_non_invalid_grant():
 
     mock_refresh = _async_client_mock("post", refresh_response)
 
-    with patch(_LOAD, return_value=expired_tokens):
-        with patch(_CLEAR) as mock_clear:
-            with patch("app.main.httpx.AsyncClient", return_value=mock_refresh):
+    with patch(_SC_LOAD, return_value=expired_tokens):
+        with patch(_SC_CLEAR) as mock_clear:
+            with patch(_SC_HTTP, return_value=mock_refresh):
                 resp = client.get("/me")
 
     assert resp.status_code == 502
@@ -135,9 +139,9 @@ def test_me_clears_tokens_on_invalid_grant():
 
     mock_refresh = _async_client_mock("post", refresh_response)
 
-    with patch(_LOAD, return_value=expired_tokens):
-        with patch(_CLEAR) as mock_clear:
-            with patch("app.main.httpx.AsyncClient", return_value=mock_refresh):
+    with patch(_SC_LOAD, return_value=expired_tokens):
+        with patch(_SC_CLEAR) as mock_clear:
+            with patch(_SC_HTTP, return_value=mock_refresh):
                 resp = client.get("/me")
 
     assert resp.status_code == 401
