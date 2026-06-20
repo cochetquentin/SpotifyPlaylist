@@ -41,13 +41,22 @@ CREATE TABLE IF NOT EXISTS playlist_tracks (
 );
 """
 
+_CREATE_SYNCS = """
+CREATE TABLE IF NOT EXISTS syncs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 
 def init_db(db_path: Path | None = None) -> None:
     path = db_path or get_db_path()
     # sqlite3 context manager commits/rollbacks but does NOT close — close explicitly.
     conn = sqlite3.connect(path)
     try:
-        conn.executescript(_CREATE_TRACKS + _CREATE_PLAYLISTS + _CREATE_PLAYLIST_TRACKS)
+        conn.executescript(
+            _CREATE_TRACKS + _CREATE_PLAYLISTS + _CREATE_PLAYLIST_TRACKS + _CREATE_SYNCS
+        )
     finally:
         conn.close()
 
@@ -125,10 +134,17 @@ def upsert_playlist_track(db_path: Path, playlist_id: str, track_id: str, positi
     return cursor.rowcount > 0
 
 
+def record_sync(db_path: Path | None = None) -> None:
+    """Enregistre l'horodatage de la synchronisation courante."""
+    path = db_path or get_db_path()
+    with get_connection(path) as conn:
+        conn.execute("INSERT INTO syncs (synced_at) VALUES (CURRENT_TIMESTAMP)")
+
+
 def get_stats(db_path: Path | None = None) -> dict:
     path = db_path or get_db_path()
     with get_connection(path) as conn:
         track_count = conn.execute("SELECT COUNT(*) FROM tracks").fetchone()[0]
         playlist_count = conn.execute("SELECT COUNT(*) FROM playlists").fetchone()[0]
-        last_sync = conn.execute("SELECT MAX(imported_at) FROM tracks").fetchone()[0]
+        last_sync = conn.execute("SELECT MAX(synced_at) FROM syncs").fetchone()[0]
     return {"tracks": track_count, "playlists": playlist_count, "last_sync": last_sync}

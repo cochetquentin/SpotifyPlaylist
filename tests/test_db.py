@@ -2,7 +2,14 @@ import sqlite3
 
 import pytest
 
-from app.db import get_stats, init_db, upsert_playlist, upsert_playlist_track, upsert_track
+from app.db import (
+    get_stats,
+    init_db,
+    record_sync,
+    upsert_playlist,
+    upsert_playlist_track,
+    upsert_track,
+)
 
 
 def _make_track(track_id: str = "t1", popularity: int = 80) -> dict:
@@ -34,7 +41,7 @@ class TestInitDb:
                     "SELECT name FROM sqlite_master WHERE type='table'"
                 ).fetchall()
             }
-        assert {"tracks", "playlists", "playlist_tracks"}.issubset(tables)
+        assert {"tracks", "playlists", "playlist_tracks", "syncs"}.issubset(tables)
 
     def test_idempotent(self, db_path):
         init_db(db_path)
@@ -127,7 +134,23 @@ class TestGetStats:
         stats = get_stats(db_path)
         assert stats["tracks"] == 2
         assert stats["playlists"] == 1
-        assert stats["last_sync"] is not None
+        assert stats["last_sync"] is None  # pas encore de sync enregistrée
+
+    def test_record_sync_sets_last_sync(self, db_path):
+        init_db(db_path)
+        assert get_stats(db_path)["last_sync"] is None
+        record_sync(db_path)
+        assert get_stats(db_path)["last_sync"] is not None
+
+    def test_record_sync_updates_even_without_new_tracks(self, db_path):
+        """last_sync reflète le dernier import même si aucun nouveau track n'a été inséré."""
+        init_db(db_path)
+        record_sync(db_path)
+        first = get_stats(db_path)["last_sync"]
+        assert first is not None
+        record_sync(db_path)
+        second = get_stats(db_path)["last_sync"]
+        assert second >= first
 
     @pytest.mark.parametrize("track_id", ["abc", "xyz"])
     def test_parametrize_counts(self, db_path, track_id):

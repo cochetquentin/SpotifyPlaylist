@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.db import get_db_path, get_stats, init_db
+from app.db import get_db_path, get_stats, init_db, record_sync
 from app.library.importer import import_liked_tracks, import_playlists
 from app.spotify_client import get_valid_tokens
 
@@ -16,10 +16,13 @@ async def trigger_import() -> dict:
     init_db(db_path)
 
     tracks_added = await import_liked_tracks(headers, db_path)
-    playlists_added, playlist_tracks_added = await import_playlists(headers, db_path)
+    playlists_added, playlist_tracks_added, playlist_only_tracks = await import_playlists(
+        headers, db_path
+    )
+    record_sync(db_path)
 
     return {
-        "tracks_added": tracks_added,
+        "tracks_added": tracks_added + playlist_only_tracks,
         "playlists_added": playlists_added,
         "playlist_tracks_added": playlist_tracks_added,
     }

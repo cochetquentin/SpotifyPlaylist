@@ -3,7 +3,7 @@ import time
 
 import httpx
 from fastapi import HTTPException
-from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, stop_after_attempt
 
 from app.auth.tokens import clear_tokens, load_tokens, save_tokens
 
@@ -58,9 +58,21 @@ async def get_valid_tokens() -> dict:
     return tokens
 
 
+def _retry_after_wait(retry_state) -> float:
+    """Respecte le header Retry-After de Spotify ; défaut 1s."""
+    exc = retry_state.outcome.exception()
+    if isinstance(exc, httpx.HTTPStatusError):
+        header = exc.response.headers.get("Retry-After", "")
+        try:
+            return max(1.0, float(header))
+        except (ValueError, TypeError):
+            pass
+    return 1.0
+
+
 @retry(
     retry=retry_if_exception(_is_rate_limited),
-    wait=wait_exponential(multiplier=1, min=1, max=60),
+    wait=_retry_after_wait,
     stop=stop_after_attempt(5),
     reraise=True,
 )
