@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.db import get_db_path, get_stats, init_db, record_sync
 from app.library.importer import import_liked_tracks, import_playlists
-from app.spotify_client import get_valid_tokens
+from app.spotify_client import IMPORT_SCOPES, get_valid_tokens
 
 router = APIRouter()
 
@@ -11,7 +11,7 @@ router = APIRouter()
 async def trigger_import() -> dict:
     """Déclenche l'import complet : liked songs + playlists. Mode incrémental automatique."""
     print("[IMPORT] 1. get_valid_tokens...", flush=True)
-    tokens = await get_valid_tokens()
+    tokens = await get_valid_tokens(required_scopes=IMPORT_SCOPES)
     print("[IMPORT] 2. tokens OK, init_db...", flush=True)
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}
     db_path = get_db_path()

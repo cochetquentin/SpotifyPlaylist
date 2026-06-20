@@ -96,10 +96,10 @@ async def _import_playlist_tracks(
     seen_track_ids: set[str] = set()
 
     while url:
-        data = await spotify_get(url, headers, {"limit": 100} if first else None)
+        data = await spotify_get(url, headers, {"limit": 50} if first else None)
         first = False
         for item in data.get("items", []):
-            track = item.get("track")
+            track = item.get("item") or item.get("track")
             if not track or not track.get("id") or track.get("type") != "track":
                 position += 1
                 continue

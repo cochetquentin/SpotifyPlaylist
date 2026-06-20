@@ -151,32 +151,38 @@ def upsert_playlist_track(db_path: Path, playlist_id: str, track_id: str, positi
 
 def prune_absent_playlist_tracks(db_path: Path, playlist_id: str, seen_track_ids: set[str]) -> None:
     """Supprime les associations playlist_tracks absentes du dernier fetch de la playlist."""
-    if not seen_track_ids:
-        return  # Sécurité : ne pas tout effacer si aucun track vu
     with get_connection(db_path) as conn:
-        placeholders = ",".join("?" * len(seen_track_ids))
-        conn.execute(
-            "DELETE FROM playlist_tracks "
-            f"WHERE playlist_id = ? AND track_id NOT IN ({placeholders})",
-            [playlist_id, *seen_track_ids],
-        )
+        if seen_track_ids:
+            placeholders = ",".join("?" * len(seen_track_ids))
+            conn.execute(
+                "DELETE FROM playlist_tracks "
+                f"WHERE playlist_id = ? AND track_id NOT IN ({placeholders})",
+                [playlist_id, *seen_track_ids],
+            )
+        else:
+            conn.execute(
+                "DELETE FROM playlist_tracks WHERE playlist_id = ?",
+                (playlist_id,),
+            )
 
 
 def prune_absent_playlists(db_path: Path, seen_ids: set[str]) -> None:
     """Supprime les playlists et leurs associations absentes de la dernière sync."""
-    if not seen_ids:
-        return  # Sécurité : ne pas tout effacer si aucune playlist vue
     with get_connection(db_path) as conn:
-        placeholders = ",".join("?" * len(seen_ids))
-        params = list(seen_ids)
-        conn.execute(
-            f"DELETE FROM playlist_tracks WHERE playlist_id NOT IN ({placeholders})",
-            params,
-        )
-        conn.execute(
-            f"DELETE FROM playlists WHERE id NOT IN ({placeholders})",
-            params,
-        )
+        if seen_ids:
+            placeholders = ",".join("?" * len(seen_ids))
+            params = list(seen_ids)
+            conn.execute(
+                f"DELETE FROM playlist_tracks WHERE playlist_id NOT IN ({placeholders})",
+                params,
+            )
+            conn.execute(
+                f"DELETE FROM playlists WHERE id NOT IN ({placeholders})",
+                params,
+            )
+        else:
+            conn.execute("DELETE FROM playlist_tracks")
+            conn.execute("DELETE FROM playlists")
 
 
 def record_sync(db_path: Path | None = None) -> None:

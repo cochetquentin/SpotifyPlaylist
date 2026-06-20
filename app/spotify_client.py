@@ -48,17 +48,20 @@ async def _refresh_tokens(tokens: dict) -> dict:
     return new_tokens
 
 
-_REQUIRED_SCOPES = {"playlist-read-private", "playlist-read-collaborative"}
+IMPORT_SCOPES: frozenset[str] = frozenset({"playlist-read-private", "playlist-read-collaborative"})
 
 
-async def get_valid_tokens() -> dict:
-    """Charge les tokens et les rafraîchit si nécessaire. Lève 401 si absent."""
+async def get_valid_tokens(required_scopes: frozenset[str] | None = None) -> dict:
+    """Charge les tokens et les rafraîchit si nécessaire. Lève 401 si absent.
+
+    Si required_scopes est fourni, vérifie que le token sauvegardé contient ces scopes.
+    """
     tokens = load_tokens()
     if not tokens:
         raise HTTPException(status_code=401, detail="Non authentifié. Visitez /auth/login")
-    if "scope" in tokens:
+    if required_scopes and "scope" in tokens:
         saved_scopes = set(tokens["scope"].split())
-        if not _REQUIRED_SCOPES.issubset(saved_scopes):
+        if not required_scopes.issubset(saved_scopes):
             clear_tokens()
             raise HTTPException(
                 status_code=401,
