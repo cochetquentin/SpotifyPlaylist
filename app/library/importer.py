@@ -1,9 +1,12 @@
+import logging
 from pathlib import Path
 
 import httpx
 
 from app.db import upsert_playlist, upsert_playlist_track, upsert_track
 from app.spotify_client import spotify_get
+
+logger = logging.getLogger(__name__)
 
 _LIKED_TRACKS_URL = "https://api.spotify.com/v1/me/tracks"
 _PLAYLISTS_URL = "https://api.spotify.com/v1/me/playlists"
@@ -17,8 +20,14 @@ async def import_liked_tracks(headers: dict, db_path: Path) -> int:
     """
     url: str | None = _LIKED_TRACKS_URL
     inserted = 0
+    page = 0
+    first = True
     while url:
-        data = await spotify_get(url, headers, {"limit": 50})
+        page += 1
+        print(f"[LIKED] page {page} — {url[:60]}...", flush=True)
+        data = await spotify_get(url, headers, {"limit": 50} if first else None)
+        first = False
+        print(f"[LIKED] page {page} OK, {len(data.get('items', []))} items", flush=True)
         for item in data.get("items", []):
             track = item.get("track")
             if track and track.get("id"):
@@ -38,14 +47,17 @@ async def import_playlists(headers: dict, db_path: Path) -> tuple[int, int, int]
     playlists_inserted = 0
     associations_inserted = 0
     new_tracks_via_playlist = 0
+    first = True
 
     while url:
-        data = await spotify_get(url, headers, {"limit": 50})
+        data = await spotify_get(url, headers, {"limit": 50} if first else None)
+        first = False
         for playlist in data.get("items", []):
             if not playlist or not playlist.get("id"):
                 continue
             if upsert_playlist(db_path, playlist):
                 playlists_inserted += 1
+            logger.info("Playlist: %s (%s)", playlist.get("name"), playlist["id"])
             try:
                 assoc, new_tracks = await _import_playlist_tracks(headers, db_path, playlist["id"])
             except httpx.HTTPStatusError as exc:
@@ -71,9 +83,11 @@ async def _import_playlist_tracks(
     inserted = 0
     new_tracks = 0
     position = 0
+    first = True
 
     while url:
-        data = await spotify_get(url, headers, {"limit": 100})
+        data = await spotify_get(url, headers, {"limit": 100} if first else None)
+        first = False
         for item in data.get("items", []):
             track = item.get("track")
             if not track or not track.get("id") or track.get("type") != "track":
