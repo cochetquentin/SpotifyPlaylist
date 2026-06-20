@@ -48,7 +48,7 @@ def load_tokens() -> dict | None:
         return None
     try:
         return json.loads(_get_fernet().decrypt(tp.read_bytes()).decode())
-    except (InvalidToken, Exception):
+    except (InvalidToken, json.JSONDecodeError, ValueError):
         clear_tokens()
         return None
 

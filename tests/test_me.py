@@ -94,6 +94,7 @@ def test_me_triggers_refresh_when_token_expired():
 
 
 def test_me_returns_401_when_refresh_fails():
+    """Un 401 générique n'efface pas les tokens (pas d'invalid_grant)."""
     expired_tokens = {
         "access_token": "old_token",
         "refresh_token": "revoked_refresh",
@@ -101,8 +102,35 @@ def test_me_returns_401_when_refresh_fails():
     }
     refresh_response = MagicMock()
     refresh_response.status_code = 401
+    refresh_response.json.return_value = {"error": "some_other_error"}
     refresh_response.raise_for_status.side_effect = httpx.HTTPStatusError(
         "401 Unauthorized", request=MagicMock(), response=refresh_response
+    )
+
+    mock_refresh = _async_client_mock("post", refresh_response)
+
+    with patch(_LOAD, return_value=expired_tokens):
+        with patch(_CLEAR) as mock_clear:
+            with patch("app.main.httpx.AsyncClient", return_value=mock_refresh):
+                resp = client.get("/me")
+
+    assert resp.status_code == 401
+    assert "Session expirée" in resp.json()["detail"]
+    mock_clear.assert_not_called()
+
+
+def test_me_clears_tokens_on_invalid_grant():
+    """Un refresh_token révoqué (invalid_grant) doit effacer les tokens locaux."""
+    expired_tokens = {
+        "access_token": "old_token",
+        "refresh_token": "revoked_refresh",
+        "expires_at": time.time() - 10,
+    }
+    refresh_response = MagicMock()
+    refresh_response.status_code = 400
+    refresh_response.json.return_value = {"error": "invalid_grant"}
+    refresh_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "400 Bad Request", request=MagicMock(), response=refresh_response
     )
 
     mock_refresh = _async_client_mock("post", refresh_response)
