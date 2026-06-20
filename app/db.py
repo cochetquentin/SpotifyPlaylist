@@ -149,6 +149,23 @@ def upsert_playlist_track(db_path: Path, playlist_id: str, track_id: str, positi
     return existing is None
 
 
+def prune_absent_playlists(db_path: Path, seen_ids: set[str]) -> None:
+    """Supprime les playlists et leurs associations absentes de la dernière sync."""
+    if not seen_ids:
+        return  # Sécurité : ne pas tout effacer si aucune playlist vue
+    with get_connection(db_path) as conn:
+        placeholders = ",".join("?" * len(seen_ids))
+        params = list(seen_ids)
+        conn.execute(
+            f"DELETE FROM playlist_tracks WHERE playlist_id NOT IN ({placeholders})",
+            params,
+        )
+        conn.execute(
+            f"DELETE FROM playlists WHERE id NOT IN ({placeholders})",
+            params,
+        )
+
+
 def record_sync(db_path: Path | None = None) -> None:
     """Enregistre l'horodatage de la synchronisation courante."""
     path = db_path or get_db_path()

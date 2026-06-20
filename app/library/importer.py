@@ -3,7 +3,7 @@ from pathlib import Path
 
 import httpx
 
-from app.db import upsert_playlist, upsert_playlist_track, upsert_track
+from app.db import prune_absent_playlists, upsert_playlist, upsert_playlist_track, upsert_track
 from app.spotify_client import spotify_get
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ async def import_playlists(headers: dict, db_path: Path) -> tuple[int, int, int]
     associations_inserted = 0
     new_tracks_via_playlist = 0
     first = True
+    seen_playlist_ids: set[str] = set()
 
     while url:
         data = await spotify_get(url, headers, {"limit": 50} if first else None)
@@ -55,6 +56,7 @@ async def import_playlists(headers: dict, db_path: Path) -> tuple[int, int, int]
         for playlist in data.get("items", []):
             if not playlist or not playlist.get("id"):
                 continue
+            seen_playlist_ids.add(playlist["id"])
             if upsert_playlist(db_path, playlist):
                 playlists_inserted += 1
             logger.info("Playlist: %s (%s)", playlist.get("name"), playlist["id"])
@@ -68,6 +70,7 @@ async def import_playlists(headers: dict, db_path: Path) -> tuple[int, int, int]
             new_tracks_via_playlist += new_tracks
         url = data.get("next")
 
+    prune_absent_playlists(db_path, seen_playlist_ids)
     return playlists_inserted, associations_inserted, new_tracks_via_playlist
 
 
