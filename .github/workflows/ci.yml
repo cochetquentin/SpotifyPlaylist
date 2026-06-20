@@ -1,0 +1,107 @@
+# Pinning strategy: version tags + Dependabot (see .github/dependabot.yml)
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  python-lint:
+    name: Python / Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Installer les dépendances
+        run: uv sync --all-groups --locked
+
+      - name: Lint (Ruff)
+        run: uv run --locked ruff check .
+
+  python-format:
+    name: Python / Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Installer les dépendances
+        run: uv sync --all-groups --locked
+
+      - name: Format (Ruff)
+        run: uv run --locked ruff format --check .
+
+  python-tests:
+    name: Python / Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Installer les dépendances
+        run: uv sync --all-groups --locked
+
+      - name: Lancer les tests
+        run: uv run --locked pytest --cov=app --cov-fail-under=80 tests/ -v
+
+  python-security:
+    name: Python / Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Installer les dépendances
+        run: uv sync --all-groups --locked
+
+      - name: Audit des dépendances
+        run: uv run --locked pip-audit

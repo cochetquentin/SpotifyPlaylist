@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Perso/Algo/Perso/DiscoverPlace/.claude/commands/**)",
+      "Read(//d/Perso/Algo/Perso/EventMaps/.github/workflows/**)",
+      "Read(//d/Perso/Algo/Perso/DiscoverPlace/.claude/**)",
+      "Bash(rtk git:*)",
+      "Bash(uv lock:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv run:*)",
+      "Bash(cp \"D:/Perso/Algo/Perso/DiscoverPlace/.claude/commands/handle-codex-review.md\" \"D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/commands/handle-codex-review.md\")",
+      "Bash(mkdir -p \"D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/scripts/codex-review\")",
+      "Bash(mkdir -p \"D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/commands\" \"D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/scripts/codex-review\")",
+      "Bash(cp D:/Perso/Algo/Perso/DiscoverPlace/.claude/scripts/codex-review/*.sh D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/scripts/codex-review/)",
+      "Bash(chmod +x D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/scripts/codex-review/*.sh)"
+    ]
+  }
+}
