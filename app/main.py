@@ -59,7 +59,7 @@ async def _refresh_tokens(tokens: dict) -> dict:
     try:
         resp.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        if exc.response.status_code < 500:
+        if exc.response.status_code in (400, 401):
             clear_tokens()
             raise HTTPException(
                 status_code=401,

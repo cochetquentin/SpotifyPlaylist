@@ -24,14 +24,24 @@ _SCOPES = " ".join(
     ]
 )
 
-# États OAuth en attente de validation (single-user, en mémoire)
-_pending_states: set[str] = set()
+# États OAuth en attente de validation : state → timestamp d'émission
+_pending_states: dict[str, float] = {}
+_STATE_TTL = 300  # 5 minutes
+
+
+def _prune_states() -> None:
+    """Supprime les états OAuth expirés."""
+    cutoff = time.time() - _STATE_TTL
+    expired = [s for s, t in _pending_states.items() if t < cutoff]
+    for s in expired:
+        del _pending_states[s]
 
 
 @router.get("/login", summary="Lancer le flux OAuth Spotify")
 def login() -> RedirectResponse:
+    _prune_states()
     state = secrets.token_urlsafe(32)
-    _pending_states.add(state)
+    _pending_states[state] = time.time()
     params = {
         "client_id": os.environ["SPOTIFY_CLIENT_ID"],
         "response_type": "code",
@@ -45,9 +55,10 @@ def login() -> RedirectResponse:
 
 @router.get("/callback", summary="Callback OAuth — échange le code contre des tokens")
 async def callback(code: str, state: str) -> HTMLResponse:
+    _prune_states()
     if state not in _pending_states:
         raise HTTPException(status_code=400, detail="State OAuth invalide ou expiré.")
-    _pending_states.discard(state)
+    _pending_states.pop(state, None)
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(

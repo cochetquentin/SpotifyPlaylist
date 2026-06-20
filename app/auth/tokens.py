@@ -3,7 +3,7 @@ import os
 import stat
 from pathlib import Path
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 
 
 def _tokens_path() -> Path:
@@ -19,8 +19,12 @@ def _get_fernet() -> Fernet:
     kp = _key_path()
     if not kp.exists():
         key = Fernet.generate_key()
-        kp.write_bytes(key)
-        kp.chmod(stat.S_IRUSR | stat.S_IWUSR)
+        # Créer avec mode 0600 dès l'ouverture — pas de fenêtre avec umask par défaut
+        fd = os.open(str(kp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            os.write(fd, key)
+        finally:
+            os.close(fd)
     return Fernet(kp.read_bytes())
 
 
@@ -33,11 +37,20 @@ def save_tokens(tokens: dict) -> None:
 
 
 def load_tokens() -> dict | None:
-    """Déchiffre et charge les tokens. Retourne None si absent."""
+    """Déchiffre et charge les tokens.
+
+    Retourne None si absent. Si le fichier est en clair (migration depuis
+    l'ancienne version) ou si la clé est corrompue, efface et retourne None
+    pour forcer une réauthentification propre.
+    """
     tp = _tokens_path()
     if not tp.exists():
         return None
-    return json.loads(_get_fernet().decrypt(tp.read_bytes()).decode())
+    try:
+        return json.loads(_get_fernet().decrypt(tp.read_bytes()).decode())
+    except (InvalidToken, Exception):
+        clear_tokens()
+        return None
 
 
 def clear_tokens() -> None:

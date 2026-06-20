@@ -39,7 +39,7 @@ def test_logout_clears_tokens():
 
 
 def test_callback_exchanges_code_and_saves_tokens():
-    _pending_states.add("validstate123")
+    _pending_states["validstate123"] = 9_999_999_999.0
 
     token_response = MagicMock()
     token_response.status_code = 200
@@ -74,7 +74,7 @@ def test_callback_rejects_invalid_state():
 
 
 def test_callback_returns_502_when_spotify_rejects_code():
-    _pending_states.add("validstate456")
+    _pending_states["validstate456"] = 9_999_999_999.0
 
     token_response = MagicMock()
     token_response.status_code = 400
