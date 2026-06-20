@@ -19,6 +19,9 @@ htmlcov/
 .tokens.json
 .tokens.key
 
+# Base de données locale (générée par POST /import)
+library.db
+
 # IDE
 .vscode/
 .idea/
