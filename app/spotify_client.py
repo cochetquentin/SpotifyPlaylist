@@ -96,5 +96,10 @@ async def spotify_get(url: str, headers: dict, params: dict | None = None) -> di
         resp = await client.get(url, headers=headers, params=params)
     if resp.status_code == 429:
         raise httpx.HTTPStatusError("Rate limited", request=resp.request, response=resp)
+    if resp.status_code == 401:
+        raise HTTPException(
+            status_code=401,
+            detail="Token Spotify révoqué ou expiré. Visitez /auth/login pour vous reconnecter.",
+        )
     resp.raise_for_status()
     return resp.json()

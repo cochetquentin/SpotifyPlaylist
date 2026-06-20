@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 _LIKED_TRACKS_URL = "https://api.spotify.com/v1/me/tracks"
 _PLAYLISTS_URL = "https://api.spotify.com/v1/me/playlists"
-_PLAYLIST_TRACKS_URL = "https://api.spotify.com/v1/playlists/{playlist_id}/items"
+_PLAYLIST_TRACKS_URL = "https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
 
 
 async def import_liked_tracks(headers: dict, db_path: Path) -> int:
@@ -99,7 +99,7 @@ async def _import_playlist_tracks(
         data = await spotify_get(url, headers, {"limit": 50} if first else None)
         first = False
         for item in data.get("items", []):
-            track = item.get("item") or item.get("track")
+            track = item.get("track")
             if not track or not track.get("id") or track.get("type") != "track":
                 position += 1
                 continue
