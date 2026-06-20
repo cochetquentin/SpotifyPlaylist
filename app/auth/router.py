@@ -1,4 +1,5 @@
 import os
+import secrets
 import time
 from urllib.parse import urlencode
 
@@ -23,21 +24,31 @@ _SCOPES = " ".join(
     ]
 )
 
+# États OAuth en attente de validation (single-user, en mémoire)
+_pending_states: set[str] = set()
+
 
 @router.get("/login", summary="Lancer le flux OAuth Spotify")
 def login() -> RedirectResponse:
+    state = secrets.token_urlsafe(32)
+    _pending_states.add(state)
     params = {
         "client_id": os.environ["SPOTIFY_CLIENT_ID"],
         "response_type": "code",
         "redirect_uri": os.environ["SPOTIFY_REDIRECT_URI"],
         "scope": _SCOPES,
+        "state": state,
         "show_dialog": "false",
     }
     return RedirectResponse(f"{_AUTH_URL}?{urlencode(params)}")
 
 
 @router.get("/callback", summary="Callback OAuth — échange le code contre des tokens")
-async def callback(code: str) -> HTMLResponse:
+async def callback(code: str, state: str) -> HTMLResponse:
+    if state not in _pending_states:
+        raise HTTPException(status_code=400, detail="State OAuth invalide ou expiré.")
+    _pending_states.discard(state)
+
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             _TOKEN_URL,

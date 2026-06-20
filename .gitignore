@@ -17,6 +17,7 @@ htmlcov/
 # Environnement & secrets
 .env
 .tokens.json
+.tokens.key
 
 # IDE
 .vscode/

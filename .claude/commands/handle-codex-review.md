@@ -67,7 +67,7 @@ Ne pas modifier les tests pour forcer le coverage — corriger le code de produc
 ## Phase 5 — Tests
 
 ```bash
-node_modules/.bin/vitest run
+uv run --locked pytest tests/ -q
 ```
 
 - **Succès** → continuer.

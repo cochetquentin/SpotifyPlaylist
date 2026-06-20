@@ -12,7 +12,11 @@
       "Bash(mkdir -p \"D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/scripts/codex-review\")",
       "Bash(mkdir -p \"D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/commands\" \"D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/scripts/codex-review\")",
       "Bash(cp D:/Perso/Algo/Perso/DiscoverPlace/.claude/scripts/codex-review/*.sh D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/scripts/codex-review/)",
-      "Bash(chmod +x D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/scripts/codex-review/*.sh)"
+      "Bash(chmod +x D:/Perso/Algo/Perso/SpotifyPlaylist/.claude/scripts/codex-review/*.sh)",
+      "Bash(rtk gh:*)",
+      "Bash(bash .claude/scripts/codex-review/pr-info.sh)",
+      "Bash(gh api:*)",
+      "Bash(bash .claude/scripts/codex-review/dirty-files.sh)"
     ]
   }
 }
