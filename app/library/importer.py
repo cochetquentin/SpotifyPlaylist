@@ -3,14 +3,20 @@ from pathlib import Path
 
 import httpx
 
-from app.db import prune_absent_playlists, upsert_playlist, upsert_playlist_track, upsert_track
+from app.db import (
+    prune_absent_playlist_tracks,
+    prune_absent_playlists,
+    upsert_playlist,
+    upsert_playlist_track,
+    upsert_track,
+)
 from app.spotify_client import spotify_get
 
 logger = logging.getLogger(__name__)
 
 _LIKED_TRACKS_URL = "https://api.spotify.com/v1/me/tracks"
 _PLAYLISTS_URL = "https://api.spotify.com/v1/me/playlists"
-_PLAYLIST_TRACKS_URL = "https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+_PLAYLIST_TRACKS_URL = "https://api.spotify.com/v1/playlists/{playlist_id}/items"
 
 
 async def import_liked_tracks(headers: dict, db_path: Path) -> int:
@@ -87,6 +93,7 @@ async def _import_playlist_tracks(
     new_tracks = 0
     position = 0
     first = True
+    seen_track_ids: set[str] = set()
 
     while url:
         data = await spotify_get(url, headers, {"limit": 100} if first else None)
@@ -101,7 +108,9 @@ async def _import_playlist_tracks(
                 new_tracks += 1
             if upsert_playlist_track(db_path, playlist_id, track["id"], position):
                 inserted += 1
+            seen_track_ids.add(track["id"])
             position += 1
         url = data.get("next")
 
+    prune_absent_playlist_tracks(db_path, playlist_id, seen_track_ids)
     return inserted, new_tracks

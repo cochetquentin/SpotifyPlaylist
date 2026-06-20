@@ -48,11 +48,22 @@ async def _refresh_tokens(tokens: dict) -> dict:
     return new_tokens
 
 
+_REQUIRED_SCOPES = {"playlist-read-private", "playlist-read-collaborative"}
+
+
 async def get_valid_tokens() -> dict:
     """Charge les tokens et les rafraîchit si nécessaire. Lève 401 si absent."""
     tokens = load_tokens()
     if not tokens:
         raise HTTPException(status_code=401, detail="Non authentifié. Visitez /auth/login")
+    if "scope" in tokens:
+        saved_scopes = set(tokens["scope"].split())
+        if not _REQUIRED_SCOPES.issubset(saved_scopes):
+            clear_tokens()
+            raise HTTPException(
+                status_code=401,
+                detail="Permissions insuffisantes. Visitez /auth/login pour renouveler l'accès.",
+            )
     if time.time() > tokens.get("expires_at", 0) - 60:
         tokens = await _refresh_tokens(tokens)
     return tokens
